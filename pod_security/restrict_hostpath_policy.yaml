@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-hostpath-nginx
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: restrict-hostpath-nginx
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "If a hostPath volume exists, it must be set to `/var/log/nginx`."
+      pattern:
+        =(spec):
+          =(volumes):
+          - =(hostPath):
+              path: "/var/log/nginx"

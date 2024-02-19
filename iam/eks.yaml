@@ -1,0 +1,173 @@
+#============================================================================#
+# VPC
+#============================================================================#
+
+Resources:
+  eksVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: eks-VPC
+        - Key: Project
+          Value: aws-eks
+  eksInternetGateway:
+      Type: AWS::EC2::InternetGateway
+      Properties:
+        Tags:
+          - Key: Name
+            Value: eks-InternetGateway
+          - Key: Project
+            Value: aws-eks
+  eksVPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:      
+      InternetGatewayId: !Ref eksInternetGateway
+      VpcId: !Ref eksVPC
+  eksPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref eksVPC
+      Tags:
+        - Key: Name
+          Value: eks-RouteTable
+        - Key: Project
+          Value: aws-eks
+  eksPublicRoute:
+    DependsOn: eksVPCGatewayAttachment
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref eksPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref eksInternetGateway
+  eksPublicSubnet01:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: eu-west-3a
+      MapPublicIpOnLaunch: true
+      CidrBlock: 10.0.0.0/24
+      VpcId:
+        Ref: eksVPC
+      Tags:
+        - Key: Name
+          Value: eks-PublicSubnet01
+        - Key: Project
+          Value: aws-eks
+  eksPublicSubnet02:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: eu-west-3b
+      MapPublicIpOnLaunch: true
+      CidrBlock: 10.0.1.0/24
+      VpcId:
+        Ref: eksVPC
+      Tags:
+        - Key: Name
+          Value: eks-PublicSubnet02
+        - Key: Project
+          Value: aws-eks
+  eksPublicSubnet01RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref eksPublicSubnet01
+      RouteTableId: !Ref eksPublicRouteTable
+  eksPublicSubnet02RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref eksPublicSubnet02
+      RouteTableId: !Ref eksPublicRouteTable
+
+#============================================================================#
+# Control plane security group
+#============================================================================#
+
+  eksSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Cluster communication with worker nodes
+      VpcId: !Ref eksVPC
+      Tags:
+        - Key: Name
+          Value: eks-SecurityGroup
+        - Key: Project
+          Value: aws-eks
+
+#============================================================================#
+# Control plane
+#============================================================================#
+
+  eksCluster:
+    Type: AWS::EKS::Cluster
+    Properties:
+      Name: EKS
+      Version: 1.29
+      RoleArn:
+        "Fn::GetAtt": ["eksIAMRole", "Arn"]
+      ResourcesVpcConfig:
+        SecurityGroupIds:
+          - !Ref eksSecurityGroup
+        SubnetIds:
+          - !Ref eksPublicSubnet01
+          - !Ref eksPublicSubnet02
+    DependsOn: [eksIAMRole, eksPublicSubnet01, eksPublicSubnet02, eksSecurityGroup]
+  eksIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - eks.amazonaws.com
+            Action:
+            - 'sts:AssumeRole'
+      RoleName: EKSClusterRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+
+#============================================================================#
+# Worker nodes (auto-scaling group)
+#============================================================================#
+
+  eksNodeGroup:
+    Type: AWS::EKS::Nodegroup
+    Properties:
+      ClusterName: EKS
+      NodeRole:
+        "Fn::GetAtt": ["eksNodeInstanceRole", "Arn"]
+      AmiType: AL2_x86_64
+      InstanceTypes:
+        - t3.medium
+      NodegroupName:  NodeGroup01       
+      ScalingConfig:
+        MinSize: 1
+        DesiredSize: 2
+        MaxSize: 4
+      Labels:
+        Project: aws-eks
+      Subnets:
+        - !Ref eksPublicSubnet01
+        - !Ref eksPublicSubnet02
+    DependsOn: [eksCluster, eksNodeInstanceRole]
+
+  eksNodeInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEKS_CNI_Policy"
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+      Path: /

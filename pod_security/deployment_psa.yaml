@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-psa-deployment
+  labels:
+    app: ubuntu
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ubuntu
+  template:
+    metadata:
+      labels:
+        app: ubuntu
+    spec:
+      containers:
+      - image: ubuntu
+        command:
+          - "sleep"
+          - "604800"
+        imagePullPolicy: IfNotPresent
+        name: ubuntu
+        # securityContext:   
+        #   privileged: true
+        #   runAsUser: 0
+        # uncomment for restricted mode ##
+        securityContext:   
+          runAsNonRoot: true
+          runAsUser: 999
+          allowPrivilegeEscalation: false
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop: ["ALL"] 
+      restartPolicy: Always
+

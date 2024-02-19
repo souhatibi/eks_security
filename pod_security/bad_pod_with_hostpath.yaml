@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-hostpath
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    command:
+      - "sleep"
+      - "604800"
+    volumeMounts:
+    - name: host-volume
+      mountPath: /host  
+  volumes:
+  - name: host-volume
+    hostPath:
+      path: /

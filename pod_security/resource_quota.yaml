@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: cpu-mem-quota
+  namespace: development
+spec:
+  hard:
+    cpu: "2"
+    memory: 2Gi
