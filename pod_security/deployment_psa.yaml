@@ -21,17 +21,17 @@ spec:
           - "604800"
         imagePullPolicy: IfNotPresent
         name: ubuntu
-        # securityContext:   
-        #   privileged: true
-        #   runAsUser: 0
-        # uncomment for restricted mode ##
         securityContext:   
-          runAsNonRoot: true
-          runAsUser: 999
-          allowPrivilegeEscalation: false
-          seccompProfile:
-            type: RuntimeDefault
-          capabilities:
-            drop: ["ALL"] 
+          privileged: true
+          runAsUser: 0
+        # uncomment for restricted mode ##
+        # securityContext:   
+        #   runAsNonRoot: true
+        #   runAsUser: 999
+        #   allowPrivilegeEscalation: false
+        #   seccompProfile:
+        #     type: RuntimeDefault
+        #   capabilities:
+        #     drop: ["ALL"] 
       restartPolicy: Always
 
