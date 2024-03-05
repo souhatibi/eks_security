@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutator-add-nodeaffinity-pod
+spec:
+  rules:
+    - name: add-nodeaffinity-pod-tenant-1
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - tenant-1
+      mutate:
+        patchesJson6902: |-
+          - op: add
+            path: "/spec/affinity/nodeAffinity/requiredDuringSchedulingIgnoredDuringExecution/nodeSelectorTerms/-1/matchExpressions/-1"
+            value: {"key":"tenant","operator":"In","values":["tenant-1"]}        

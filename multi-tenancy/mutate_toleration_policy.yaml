@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutator-add-toleration-pod
+spec:
+  rules:
+    - name: add-toleration-pod-tenant-1
+      match:
+        any:
+        - resources:
+            kinds:
+            - Pod
+            namespaces:
+            - tenant-1
+      mutate:
+        patchesJson6902: |-
+          - op: add
+            path: "/spec/tolerations/-"
+            value:
+              key: tenant
+              operator: Equal
+              value: "tenant-1"
+              effect: NoSchedule            
