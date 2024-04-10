@@ -1,5 +1,7 @@
 ################ Network Policies ################
 
+cd network_security/
+
 # Verify the version of Amazon VPC CNI plugin of the cluster
 
 kubectl describe daemonset aws-node --namespace kube-system | grep amazon-k8s-cni: | cut -d : -f 3
@@ -78,6 +80,8 @@ kubectl apply -f network_policies/policies_manifests/07_allow_egress_to_demo_app
 kubectl delete -f network_policies/policies_manifests/07_allow_egress_to_demo_app.yaml
 
 ################ Security Groups for Pods ################
+
+cd network_security/
 
 # Create security groups for RDS and green pod
 
