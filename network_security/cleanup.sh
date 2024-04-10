@@ -116,7 +116,4 @@ aws ec2 delete-security-group \
     --group-id ${POD_SG} \
     --region eu-west-3 
 
-# Delete RDS SG
-aws ec2 delete-security-group \
-    --group-id ${RDS_SG} \
-    --region eu-west-3
+

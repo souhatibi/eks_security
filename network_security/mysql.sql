@@ -1,4 +1,3 @@
-CREATE DATABASE eks;
 USE eks;
 CREATE TABLE welcome (column1 VARCHAR(40));
 INSERT into welcome values ('-------------------------------');

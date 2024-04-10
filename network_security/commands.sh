@@ -170,7 +170,7 @@ kubectl describe secret rds
 
 kubectl apply -f green_pod.yaml
 
-export GREEN_POD_NAME=$(kubectl -l app=green-pod -o jsonpath='{.items[].metadata.name}')
+export GREEN_POD_NAME=$(kubectl get pods -l app=green-pod -o jsonpath='{.items[].metadata.name}')
 
 kubectl logs -f ${GREEN_POD_NAME}
 
@@ -180,7 +180,7 @@ kubectl describe pod $GREEN_POD_NAME | head -11
 
 kubectl apply -f red_pod.yaml
 
-export RED_POD_NAME=$(kubectl -l app=red-pod -o jsonpath='{.items[].metadata.name}')
+export RED_POD_NAME=$(kubectl get pods -l app=red-pod -o jsonpath='{.items[].metadata.name}')
 
 kubectl logs -f ${RED_POD_NAME}
 
@@ -191,6 +191,16 @@ kubectl describe pod $RED_POD_NAME | head -11
 chmod +x cleanup.sh
 
 ./cleanup.sh
+
+export RDS_SG=$(aws ec2 describe-security-groups \
+    --filters Name=group-name,Values=RDS_SG \
+    --query "SecurityGroups[0].GroupId" --output text \
+    --region eu-west-3)
+
+# Delete RDS SG
+aws ec2 delete-security-group \
+    --group-id ${RDS_SG} \
+    --region eu-west-3
 
 # Finish cleanup : delete DB subnet group
 aws rds delete-db-subnet-group \

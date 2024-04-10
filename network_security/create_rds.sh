@@ -1,5 +1,11 @@
 #!/bin/bash
 
+export VPC_ID=$(aws eks describe-cluster \
+    --name EKS \
+    --query "cluster.resourcesVpcConfig.vpcId" \
+    --output text \
+    --region eu-west-3)
+
 export PUBLIC_SUBNETS_ID=$(aws ec2 describe-subnets \
     --filters "Name=tag:Project,Values=aws-eks" \
     --query 'Subnets[*].SubnetId' \
