@@ -83,6 +83,10 @@ kubectl delete -f network_policies/policies_manifests/07_allow_egress_to_demo_ap
 
 cd network_security/
 
+# create kubeconfig file locally 
+
+aws eks update-kubeconfig --region eu-west-3 --name EKS 
+
 # Create security groups for RDS and green pod
 
 chmod +x create_sgs.sh
@@ -103,7 +107,7 @@ export RDS_ENDPOINT=$(aws rds describe-db-instances \
     --output text \
     --region eu-west-3) && echo "RDS endpoint: ${RDS_ENDPOINT}"
 
-# Install mysql client 
+# Install mysql client (for macOs)
 
 brew install mysql-client
 
