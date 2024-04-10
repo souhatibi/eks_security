@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: green-pod
+  name: green-pod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: green-pod
+  template:
+    metadata:
+      labels:
+        app: green-pod
+    spec:
+      containers:
+      - image: percona:latest
+        name: green-pod
+        command:
+        - "/bin/sh"
+        - "-c"
+        - "mysql -h $HOST -u $USER -p$PASSWORD -e 'USE eks; SELECT * FROM welcome;' && sleep 604800"
+        env:
+        - name: HOST
+          valueFrom:
+            secretKeyRef:
+              name: rds
+              key: host
+        - name: USER
+          value: eks
+        - name: PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rds
+              key: password

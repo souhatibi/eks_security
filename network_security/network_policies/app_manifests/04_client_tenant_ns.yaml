@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: tenant-client-one
+  name: tenant-client-one
+  namespace: tenant-ns
+spec:
+  containers:
+  - image: curlimages/curl
+    name: client-one
+    command:
+    - sleep
+    - "3600"
