@@ -1,0 +1,22 @@
+kind: Certificate
+apiVersion: cert-manager.io/v1
+metadata:
+  name: rsa-cert-2048
+  namespace: acm-pca
+spec:
+  dnsNames:
+    - www.rsa-2048.eks-example.ovh
+    - rsa-2048.eks-example.ovh
+  duration: 50h0m0s
+  issuerRef:
+    group: awspca.cert-manager.io
+    kind: AWSPCAClusterIssuer
+    name: root-ca
+  renewBefore: 48h0m0s
+  secretName: rsa-cert-2048
+  usages:
+    - server auth
+    - client auth
+  privateKey:
+    algorithm: "RSA"
+    size: 2048   

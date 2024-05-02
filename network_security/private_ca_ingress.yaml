@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: acm-pca-ingress
+  namespace: acm-pca
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+  - hosts:
+    - www.rsa-2048.eks-example.ovh
+    secretName: rsa-cert-2048
+  rules:
+  - host: www.rsa-2048.eks-example.ovh
+    http:
+      paths:
+      - path: /
+        pathType: Exact
+        backend:
+          service:
+            name: demo-app
+            port:
+              number: 80

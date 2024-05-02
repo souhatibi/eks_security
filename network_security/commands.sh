@@ -207,10 +207,266 @@ aws rds delete-db-subnet-group \
     --db-subnet-group-name rds-eks \
     --region eu-west-3
 
+################ Istio Service Mesh ################
 
+cd network_security
 
+# Download Istio installation directory
 
+export ISTIO_VERSION="1.19.0"
 
+curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
 
+# Install Istio
 
+sudo cp -v ./istio-${ISTIO_VERSION}/bin/istioctl /usr/local/bin/
+
+rm -r ./istio-${ISTIO_VERSION}
+
+# Verify that you have the proper version 
+
+istioctl version --remote=false
+
+# Verify all the services have been installed
+
+yes | istioctl install --set profile=demo
+
+# Check the Istio pods are running
+
+kubectl -n istio-system get pods
+
+# Deploy frontend nginx
+
+kubectl apply -f istio_frontend.yaml
+
+kubectl get all -n front-end
+
+# Deploy backend api
+
+kubectl apply -f istio_backend.yaml
+
+kubectl get all -n back-end
+
+# Test the communication from nginx pod to api pod 
+
+kubectl exec $(kubectl get pod -l app=nginx -o jsonpath={.items..metadata.name} -n front-end) \
+    -c nginx \
+    -n front-end \
+    -- curl http://api.back-end:8080 \
+    -o /dev/null \
+    -s -w "From nginx.front-end to api.back-end - HTTP Response Code: %{http_code}\n"
+
+# Enable Istio injection on back-end namespace
+
+kubectl label ns back-end istio-injection=enabled
+
+# Delete and re-create api pod
+
+kubectl delete pod $(kubectl get pod -l app=api -o jsonpath={.items..metadata.name} -n back-end) \
+    -n back-end
+
+# Verify if the api pod is injected with istio side-car envoy proxy container
+
+kubectl get pod -n back-end
+
+# Verify the logs of side-car envoy proxy container injected into the api pod
+
+kubectl logs $(kubectl get pod -l app=api -o jsonpath={.items..metadata.name} -n back-end) \
+    -n back-end \
+    -c istio-proxy | tail -2
+
+# Test communication from nginx pod to api service
+
+kubectl exec $(kubectl get pod -l app=nginx -o jsonpath={.items..metadata.name} -n front-end) \
+    -c nginx \
+    -n front-end \
+    -- curl http://api.back-end:8080 \
+    -o /dev/null \
+    -s -w "From nginx.front-end to api.back-end - HTTP Response Code: %{http_code}\n"
+
+# Verify the logs of side-car envoy proxy container injected into the api pod
+
+kubectl logs $(kubectl get pod -l app=api -o jsonpath={.items..metadata.name} -n back-end) \
+    -n back-end \
+    -c istio-proxy | tail -2
+
+# Enable mTLS mode of STRICT on back-end namespace
+
+kubectl apply -f istio_auth.yaml
+
+# Test communication from nginx pod to api service
+
+kubectl exec $(kubectl get pod -l app=nginx -o jsonpath={.items..metadata.name} -n front-end) \
+    -c nginx \
+    -n front-end \
+    -- curl http://api.back-end:8080 \
+    -o /dev/null \
+    -s -w "From nginx.front-end to api.back-end - HTTP Response Code: %{http_code}\n"
+
+# Enable Istio injection on front-end namespace
+
+kubectl label ns front-end istio-injection=enabled
+
+# Delete and re-create nginx pod
+
+kubectl delete pod $(kubectl get pod -l app=nginx -o jsonpath={.items..metadata.name} -n front-end) \
+    -n front-end
+
+# Verify if the nginx pod is injected with istio side-car envoy proxy container
+
+kubectl get po -n front-end
+
+# Test communication from nginx pod to api service
+
+kubectl exec $(kubectl get pod -l app=nginx -o jsonpath={.items..metadata.name} -n front-end) \
+    -c nginx \
+    -n front-end \
+    -- curl http://api.back-end:8080 \
+    -o /dev/null \
+    -s -w "From nginx.front-end to api.back-end - HTTP Response Code: %{http_code}\n"
+
+# Verify the logs of side-car envoy proxy container injected into the api pod
+
+kubectl logs $(kubectl get pod -l app=api -o jsonpath={.items..metadata.name} -n back-end) \
+    -n back-end \
+    -c istio-proxy | tail -2
+
+# Cleanup 
+
+kubectl delete -f istio_auth.yaml
+
+kubectl delete -f istio_backend.yaml
+
+kubectl delete -f istio_frontend.yaml
+
+# istioctl uninstall --purge
+
+################# Encryption with load balancers ##################
+
+kubectl apply -f encryption_nlb.yaml
+
+kubectl delete -f encryption_nlb.yaml
+
+################# TLS-enabled Kubernetes clusters with ACM Private CA and Amazon EKS ##################
+
+aws eks update-kubeconfig --region eu-west-3 --name EKS 
+
+# Install NGINX Ingress
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
+
+# determine the address that AWS has assigned to your NLB
+
+kubectl get service -n ingress-nginx
+
+# Install cert-manager
+
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
+
+# Install aws-privateca-issuer
+
+kubectl create namespace aws-pca-issuer
+
+# Install helm for macos (Follow the instructions here https://helm.sh/docs/intro/install/ for other OSs )
+
+brew install helm
+
+brew link helm
+
+# Install aws-privateca-issuer
+
+helm repo add awspca https://cert-manager.github.io/aws-privateca-issuer
+helm repo update
+helm install awspca/aws-privateca-issuer  --generate-name --namespace aws-pca-issuer
+
+# Verify that the AWS Private CA Issuer is configured correctly
+
+kubectl get pods --namespace aws-pca-issuer
+
+# Create an ACM Private CA
+
+aws acm-pca get-certificate-authority-certificate \
+    --certificate-authority-arn <CA_ARN> \
+    --region eu-west-3 \
+    --output text > cacert.pem
+
+# Set EKS node permission for ACM Private CA
+
+export REGION=eu-west-3
+export ACCOUNT_ID=<ACCOUNT_ID>
+export CA_ARN=<CA_ARN>
+
+cat << EoF > ./acm_policy.json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "awspcaissuer",
+            "Action": [
+                "acm-pca:DescribeCertificateAuthority",
+                "acm-pca:GetCertificate",
+                "acm-pca:IssueCertificate"
+            ],
+			"Effect": "Allow",
+            "Resource": "${CA_ARN}"
+        }       
+    ]
+}
+EoF
+
+aws iam create-policy --policy-name AcmPolicy --policy-document file://acm_policy.json
+
+aws iam attach-role-policy \
+    --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/AcmPolicy \
+    --role-name <NODE_INSTANCE_ROLE>
+
+# Create an Issuer in Amazon EKS
+
+cat << EoF > ./cluster_issuer.yaml
+apiVersion: awspca.cert-manager.io/v1beta1
+kind: AWSPCAClusterIssuer
+metadata:
+          name: root-ca
+spec:
+          arn: ${CA_ARN}
+          region: ${REGION}
+EoF
+
+kubectl apply -f cluster_issuer.yaml
+
+kubectl get AWSPCAClusterIssuer
+
+# Request the certificate
+
+kubectl create namespace acm-pca
+
+# Create a basic X509 private certificate for the domain
+
+kubectl apply -f create_cert.yaml -n acm-pca
+
+# Verify that the certificate is issued 
+
+kubectl get certificate -n acm-pca
+
+# Check the progress of the certificate
+
+kubectl describe certificate rsa-cert-2048 -n acm-pca
+
+# Check the issued certificate details
+
+kubectl get secret rsa-cert-2048 -n acm-pca -o 'go-template={{index .data "tls.crt"}}' \
+    | base64 --decode \
+    | openssl x509 -noout -text
+
+# Deploy a demo application
+
+kubectl apply -f private_ca_app.yaml
+
+# Expose and secure your application
+
+kubectl apply -f private_ca_ingress.yaml
+
+# Access the application using TLS
+
+curl https://www.rsa-2048.eks-example.ovh --cacert cacert.pem -v 
 
