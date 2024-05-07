@@ -227,7 +227,7 @@ rm -r ./istio-${ISTIO_VERSION}
 
 istioctl version --remote=false
 
-# Verify all the services have been installed
+# Install all the Istio components using the built-in demo configuration profile
 
 yes | istioctl install --set profile=demo
 
@@ -355,17 +355,13 @@ aws eks update-kubeconfig --region eu-west-3 --name EKS
 
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
 
-# determine the address that AWS has assigned to your NLB
+# Find the address that AWS has assigned to the NLB
 
 kubectl get service -n ingress-nginx
 
 # Install cert-manager
 
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
-
-# Install aws-privateca-issuer
-
-kubectl create namespace aws-pca-issuer
 
 # Install helm for macos (Follow the instructions here https://helm.sh/docs/intro/install/ for other OSs )
 
@@ -375,6 +371,8 @@ brew link helm
 
 # Install aws-privateca-issuer
 
+kubectl create namespace aws-pca-issuer
+
 helm repo add awspca https://cert-manager.github.io/aws-privateca-issuer
 helm repo update
 helm install awspca/aws-privateca-issuer  --generate-name --namespace aws-pca-issuer
@@ -383,7 +381,7 @@ helm install awspca/aws-privateca-issuer  --generate-name --namespace aws-pca-is
 
 kubectl get pods --namespace aws-pca-issuer
 
-# Create an ACM Private CA
+# Download the CA certificate after creating the CA on the console
 
 aws acm-pca get-certificate-authority-certificate \
     --certificate-authority-arn <CA_ARN> \
@@ -436,7 +434,7 @@ kubectl apply -f cluster_issuer.yaml
 
 kubectl get AWSPCAClusterIssuer
 
-# Request the certificate
+# Create a new namespace that will contain the application 
 
 kubectl create namespace acm-pca
 
@@ -462,11 +460,26 @@ kubectl get secret rsa-cert-2048 -n acm-pca -o 'go-template={{index .data "tls.c
 
 kubectl apply -f private_ca_app.yaml
 
-# Expose and secure your application
+# Expose and secure the application
 
 kubectl apply -f private_ca_ingress.yaml
 
 # Access the application using TLS
 
 curl https://www.rsa-2048.eks-example.ovh --cacert cacert.pem -v 
+
+# Cleanup
+
+kubectl delete -f private_ca_ingress.yaml
+
+kubectl delete -f private_ca_app.yaml
+
+aws iam detach-role-policy \
+    --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/AcmPolicy \
+    --role-name <NODE_INSTANCE_ROLE>
+
+aws iam delete-policy --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/AcmPolicy
+ 
+
+
 
