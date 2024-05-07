@@ -339,7 +339,7 @@ kubectl delete -f istio_backend.yaml
 
 kubectl delete -f istio_frontend.yaml
 
-# istioctl uninstall --purge
+istioctl uninstall --purge
 
 ################# Encryption with load balancers ##################
 
