@@ -349,8 +349,6 @@ kubectl delete -f encryption_nlb.yaml
 
 ################# TLS-enabled Kubernetes clusters with ACM Private CA and Amazon EKS ##################
 
-aws eks update-kubeconfig --region eu-west-3 --name EKS 
-
 # Install NGINX Ingress
 
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
