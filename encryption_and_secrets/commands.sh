@@ -21,9 +21,13 @@ kubectl get pods -n kube-system -l app=csi-secrets-store-provider-aws
 
 # Create a secret in AWS Secret Manager
 
-SECRET_ARN=$(aws --region eu-west-3 secretsmanager \
+aws --region eu-west-3 secretsmanager \
   create-secret --name dbsecret_eks \
-  --secret-string '{"username":"db_user", "password":"db_secret"}')
+  --secret-string '{"username":"db_user", "password":"db_secret"}'
+
+SECRET_ARN=$(aws --region "eu-west-3" secretsmanager \
+    describe-secret --secret-id  dbsecret_eks \
+    --query 'ARN' | sed -e 's/"//g' )
 
 echo $SECRET_ARN
 
